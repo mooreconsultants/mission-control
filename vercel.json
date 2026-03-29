@@ -1,0 +1,12 @@
+{
+  "buildCommand": "npm run build",
+  "devCommand": "npm run dev",
+  "outputDirectory": ".next",
+  "framework": "nextjs",
+  "env": {
+    "NEXT_PUBLIC_OPENCLAW_API": {
+      "description": "OpenClaw API endpoint for live agent data",
+      "default": "http://localhost:3000/api"
+    }
+  }
+}
