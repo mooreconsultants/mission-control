@@ -62,7 +62,7 @@ export default function Home() {
 
         {/* Orchestrator */}
         <div>
-          <TeamSection group="orchestrator" agents={groupedAgents.orchestrator} />
+          <TeamSection group="orchestrator" agents={agents.filter((a) => a.group === 'orchestrator')} />
         </div>
 
         {/* Content Pipeline Section */}
@@ -79,17 +79,17 @@ export default function Home() {
           <div className="grid gap-8 lg:grid-cols-3">
             {/* Operations */}
             <div>
-              <TeamSection group="operations" agents={groupedAgents.operations} />
+              <TeamSection group="operations" agents={agents.filter((a) => a.group === 'operations')} />
             </div>
 
             {/* Content Pipeline */}
             <div>
-              <TeamSection group="content" agents={groupedAgents.content} />
+              <TeamSection group="content" agents={agents.filter((a) => a.group === 'content')} />
             </div>
 
             {/* Meta Layer */}
             <div>
-              <TeamSection group="meta" agents={groupedAgents.meta} />
+              <TeamSection group="meta" agents={agents.filter((a) => a.group === 'meta')} />
             </div>
           </div>
         </div>

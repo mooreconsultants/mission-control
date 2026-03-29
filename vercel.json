@@ -4,9 +4,6 @@
   "outputDirectory": ".next",
   "framework": "nextjs",
   "env": {
-    "NEXT_PUBLIC_OPENCLAW_API": {
-      "description": "OpenClaw API endpoint for live agent data",
-      "default": "http://localhost:3000/api"
-    }
+    "NEXT_PUBLIC_OPENCLAW_API": "http://localhost:3000/api"
   }
 }
