@@ -1,10 +1,43 @@
 'use client';
 
-import { useMemo } from 'react';
-import { agents } from '@/data/agents';
+import { useEffect, useMemo, useState } from 'react';
+import { Agent } from '@/data/agents';
 import { TeamSection } from '@/components/TeamSection';
 
 export default function Home() {
+  const [agents, setAgents] = useState<Agent[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
+
+  // Fetch agents from API
+  const fetchAgents = async () => {
+    try {
+      const response = await fetch('/api/agents', { cache: 'no-store' });
+      if (!response.ok) throw new Error('Failed to fetch agents');
+      
+      const data = await response.json();
+      setAgents(data);
+      setLastUpdate(new Date());
+      setError(null);
+    } catch (err) {
+      console.error('Error fetching agents:', err);
+      setError(err instanceof Error ? err.message : 'Unknown error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Initial fetch and polling
+  useEffect(() => {
+    fetchAgents();
+
+    // Poll every 10 seconds for real-time updates
+    const interval = setInterval(fetchAgents, 10000);
+
+    return () => clearInterval(interval);
+  }, []);
+
   const groupedAgents = useMemo(() => {
     return {
       orchestrator: agents.filter((a) => a.group === 'orchestrator'),
@@ -12,7 +45,7 @@ export default function Home() {
       content: agents.filter((a) => a.group === 'content'),
       meta: agents.filter((a) => a.group === 'meta'),
     };
-  }, []);
+  }, [agents]);
 
   const totalAgents = agents.length;
   const onlineAgents = agents.filter((a) => a.status === 'online').length;
@@ -30,6 +63,14 @@ export default function Home() {
             <p className="text-xl text-slate-300">
               Your Autonomous Multi-Agent Team Dashboard
             </p>
+          </div>
+
+          {/* Status Badge */}
+          <div className="flex items-center justify-center gap-2">
+            <div className={`h-2 w-2 rounded-full ${error ? 'bg-red-500' : 'bg-green-500'} animate-pulse`} />
+            <span className="text-sm text-slate-400">
+              {loading ? 'Loading...' : error ? `Error: ${error}` : `Live • Updated ${lastUpdate?.toLocaleTimeString() || 'just now'}`}
+            </span>
           </div>
 
           {/* Stats */}
@@ -62,7 +103,7 @@ export default function Home() {
 
         {/* Orchestrator */}
         <div>
-          <TeamSection group="orchestrator" agents={agents.filter((a) => a.group === 'orchestrator')} />
+          <TeamSection group="orchestrator" agents={groupedAgents.orchestrator} />
         </div>
 
         {/* Content Pipeline Section */}
@@ -79,17 +120,17 @@ export default function Home() {
           <div className="grid gap-8 lg:grid-cols-3">
             {/* Operations */}
             <div>
-              <TeamSection group="operations" agents={agents.filter((a) => a.group === 'operations')} />
+              <TeamSection group="operations" agents={groupedAgents.operations} />
             </div>
 
             {/* Content Pipeline */}
             <div>
-              <TeamSection group="content" agents={agents.filter((a) => a.group === 'content')} />
+              <TeamSection group="content" agents={groupedAgents.content} />
             </div>
 
             {/* Meta Layer */}
             <div>
-              <TeamSection group="meta" agents={agents.filter((a) => a.group === 'meta')} />
+              <TeamSection group="meta" agents={groupedAgents.meta} />
             </div>
           </div>
         </div>
