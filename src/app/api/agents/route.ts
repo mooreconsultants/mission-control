@@ -1,4 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { exec } from 'child_process';
+import { promisify } from 'util';
+
+const execAsync = promisify(exec);
 
 interface AgentData {
   id: string;
@@ -121,48 +125,53 @@ function formatLastActive(lastMessageTime?: number): string {
   return `${daysSince}d ago`;
 }
 
+async function getSessionsFromOpenClaw(): Promise<any[]> {
+  try {
+    // Call sessions_list via openclaw CLI to get real session data
+    const { stdout } = await execAsync('openclaw sessions list --json 2>/dev/null || echo "[]"', {
+      timeout: 5000,
+    });
+    
+    try {
+      return JSON.parse(stdout);
+    } catch {
+      return [];
+    }
+  } catch (err) {
+    console.warn('Could not fetch sessions from OpenClaw CLI:', err);
+    return [];
+  }
+}
+
 export async function GET(request: NextRequest) {
   try {
-    // Fetch real session data from OpenClaw Gateway
-    const gatewayUrl = process.env.OPENCLAW_GATEWAY_URL || 'http://localhost:3001';
-    const gatewayToken = process.env.OPENCLAW_GATEWAY_TOKEN;
-
-    let sessionsData: any[] = [];
-
-    try {
-      // Try to fetch sessions from the local gateway
-      const headers: HeadersInit = {};
-      if (gatewayToken) {
-        headers['Authorization'] = `Bearer ${gatewayToken}`;
-      }
-
-      const sessionsResponse = await fetch(`${gatewayUrl}/api/sessions`, {
-        headers,
-        cache: 'no-store',
-      });
-
-      if (sessionsResponse.ok) {
-        const data = await sessionsResponse.json();
-        sessionsData = Array.isArray(data) ? data : data.sessions || [];
-      }
-    } catch (err) {
-      console.warn('Could not fetch sessions from Gateway:', err);
-      // Fall back to empty sessions array
-    }
+    // Fetch real session data from OpenClaw
+    const sessionsData = await getSessionsFromOpenClaw();
 
     // Build agent list with real status
     const agents: AgentData[] = Object.entries(agentMetadata).map(([agentId, metadata]) => {
-      // Find sessions for this agent
-      const agentSessions = sessionsData.filter(
-        (s: any) => s.agentId === agentId || s.label?.includes(metadata.name)
-      );
+      // Find sessions for this agent (match by agentId or label containing agent name)
+      const agentSessions = sessionsData.filter((s: any) => {
+        const matches =
+          s.agentId === agentId ||
+          s.label?.toLowerCase().includes(metadata.name.toLowerCase()) ||
+          s.kind === agentId;
+        return matches;
+      });
 
       // Get most recent activity
       const mostRecentSession = agentSessions.sort(
-        (a: any, b: any) => (b.lastActivityTime || 0) - (a.lastActivityTime || 0)
+        (a: any, b: any) => {
+          const aTime = new Date(a.updated || a.created || 0).getTime();
+          const bTime = new Date(b.updated || b.created || 0).getTime();
+          return bTime - aTime;
+        }
       )[0];
 
-      const lastActivityTime = mostRecentSession?.lastActivityTime;
+      const lastActivityTime = mostRecentSession
+        ? new Date(mostRecentSession.updated || mostRecentSession.created || 0).getTime()
+        : undefined;
+
       const status = getAgentStatus(lastActivityTime);
       const lastActive = formatLastActive(lastActivityTime);
 
@@ -170,7 +179,7 @@ export async function GET(request: NextRequest) {
         ...metadata,
         status,
         lastActive,
-        currentTask: mostRecentSession?.currentTask || undefined,
+        currentTask: mostRecentSession?.label || undefined,
       };
     });
 
